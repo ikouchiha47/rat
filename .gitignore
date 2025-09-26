@@ -1,3 +1,5 @@
-localchat
-
 logs*
+.DS_Store
+
+out/*
+!out/.keep

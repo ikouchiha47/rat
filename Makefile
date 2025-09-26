@@ -1,6 +1,6 @@
 # Local Chat Application Makefile
 
-APP_NAME=ratata
+APP_NAME=out/ratata
 
 .PHONY: build run clean test deps fmt lint help
 
@@ -65,7 +65,7 @@ lint:
 	golangci-lint run
 
 # Build for multiple platforms
-build-all:
+build-all: build
 	@echo "Building for multiple platforms..."
 	GOOS=linux GOARCH=amd64 go build -o $(APP_NAME)-linux-amd64 cmd/main.go
 	GOOS=darwin GOARCH=amd64 go build -o $(APP_NAME)-darwin-amd64 cmd/main.go
