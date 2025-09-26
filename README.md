@@ -48,29 +48,31 @@ cd rat
 go mod tidy
 
 # Build the application
-go build -o localchat cmd/main.go
+go build -o ratata cmd/main.go
 
 # Run the application
-./localchat
+./ratata
 ```
 
 ## Usage
+
+On mac, do: `xattr -c ./ratata` to remove quarantine flag.
 
 ### Basic Usage
 
 ```bash
 # Run with interactive username prompt
-./localchat
+./ratata
 
 # Run with CLI flags
-./localchat -username alice -room dev
-./localchat -u bob -r gaming
+./ratata -username alice -room dev
+./ratata -u bob -r gaming
 
 # Run with CLI flags and custom port
-./localchat -username alice -room dev -port 8080
+./ratata -username alice -room dev -port 8080
 
 # Show help
-./localchat -h
+./ratata -h
 ```
 
 ### CLI Flags
@@ -81,7 +83,7 @@ go build -o localchat cmd/main.go
 | `-room` | `-r` | Chat room to join | `general` |
 | `-port` | | Port to listen on | Random available |
 | `-log` | | Log level (DEBUG, INFO, WARN, ERROR) | `INFO` |
-| `-service` | | mDNS service name | `LocalChat` |
+| `-service` | | mDNS service name | `ratata` |
 
 ### Environment Variables (Fallback)
 
@@ -91,7 +93,7 @@ go build -o localchat cmd/main.go
 | `CHAT_ROOM` | Default room to join | `general` |
 | `CHAT_PORT` | Port to listen on | Random available |
 | `LOG_LEVEL` | Logging level (DEBUG, INFO, WARN, ERROR) | `INFO` |
-| `CHAT_SERVICE_NAME` | mDNS service name | `LocalChat` |
+| `CHAT_SERVICE_NAME` | mDNS service name | `ratata` |
 
 ### Interactive Mode
 
@@ -145,7 +147,7 @@ hello everyone            # Send message to room
 
 The application uses mDNS (Multicast DNS) for service discovery:
 
-- **Service Type**: `_localchat._tcp`
+- **Service Type**: `_ratata._tcp`
 - **Domain**: `local.`
 - **TXT Records**: Contains username, room, version, and peer ID
 
@@ -230,7 +232,7 @@ go test -cover ./...
 Enable debug logging:
 
 ```bash
-LOG_LEVEL=DEBUG ./localchat
+LOG_LEVEL=DEBUG ./ratata
 ```
 
 Common issues:
@@ -248,17 +250,17 @@ Common issues:
 # Check if mDNS is working
 avahi-browse -a
 # or
-dns-sd -B _localchat._tcp
+dns-sd -B _ratata._tcp
 ```
 
 ### Network Diagnostics
 
 ```bash
 # Check listening ports
-netstat -tlnp | grep localchat
+netstat -tlnp | grep ratata
 
 # Check mDNS services
-avahi-browse -r _localchat._tcp
+avahi-browse -r _ratata._tcp
 ```
 
 ### Debug Mode
@@ -266,7 +268,7 @@ avahi-browse -r _localchat._tcp
 Run with maximum logging:
 
 ```bash
-LOG_LEVEL=DEBUG ./localchat
+LOG_LEVEL=DEBUG ./ratata
 ```
 
 ## Contributing
