@@ -54,10 +54,10 @@ type LocalChatService struct {
 	heartbeatTimer *time.Timer
 	heartbeatDone  chan struct{}
 	
-	// Channel-based message processing
-	incomingMessages chan *models.Message  // Buffered channel for incoming messages
-	outgoingMessages chan *models.Message  // Buffered channel for outgoing messages
-	uiUpdates       chan struct{}          // Channel to trigger UI updates
+	// Channels for message handling
+	incomingMessages chan *models.Message
+	outgoingMessages chan *models.Message
+	uiUpdates        chan struct{}
 	
 	// Message deduplication with ordered sequence and pluggable writer
 	messageCache     *MessageCache         // Ordered cache with max limit
@@ -1243,8 +1243,13 @@ func (s *LocalChatService) handleIncomingMessage(message *models.Message) {
 		s.handleKeyResponse(message)
 		return // Don't add key responses to message history
 	case models.MessageTypeHeartbeat:
-		// Heartbeats don't need special handling
-		return
+		// Update user registry with heartbeat info
+		if peer, exists := s.peers.Get(message.From); exists {
+			s.userRegistry.RegisterUser(message.From, peer)
+			s.userRegistry.JoinRoom(message.From, message.Room)
+			s.logger.Debug("HEARTBEAT: Updated user presence", "user", message.From, "room", message.Room)
+		}
+		return // Don't add heartbeats to message history
 	}
 	
 	// Add decrypted message to message list (only for displayable messages)
@@ -1274,24 +1279,39 @@ func (s *LocalChatService) sendMessageBatch(batch []*models.Message) {
 
 // startHeartbeat starts the heartbeat mechanism
 func (s *LocalChatService) startHeartbeat() {
+	s.heartbeatDone = make(chan struct{})
 	s.heartbeatTimer = time.NewTimer(30 * time.Second)
 	
 	go func() {
+		defer s.heartbeatTimer.Stop()
+		
 		for {
 			select {
 			case <-s.heartbeatDone:
+				s.logger.Debug("HEARTBEAT: Stopping heartbeat timer")
 				return
+				
 			case <-s.heartbeatTimer.C:
-				s.sendHeartbeat()
+				// Send heartbeat if we're in a room and registered
+				if s.currentRoom != "" && s.registered {
+					s.sendHeartbeat()
+					s.logger.Debug("HEARTBEAT: Sent heartbeat", "room", s.currentRoom, "username", s.username)
+				}
+				// Reset timer for next heartbeat
 				s.heartbeatTimer.Reset(30 * time.Second)
+				
+			case <-s.ctx.Done():
+				return
 			}
 		}
 	}()
+	
+	s.logger.Info("HEARTBEAT: Started heartbeat timer", "interval", "30s")
 }
 
 // sendHeartbeat sends a heartbeat message
 func (s *LocalChatService) sendHeartbeat() {
-	if s.currentRoom == "" {
+	if s.currentRoom == "" || !s.registered {
 		return
 	}
 	

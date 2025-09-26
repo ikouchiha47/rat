@@ -165,7 +165,15 @@ func (m *Model) Init() tea.Cmd {
 		tea.EnterAltScreen,
 		m.refreshMessages,
 		m.refreshPeers,
+		m.tickPeersRefresh, // Start periodic peer refresh
 	)
+}
+
+// tickPeersRefresh creates a periodic refresh for peers list
+func (m *Model) tickPeersRefresh() tea.Msg {
+	return tea.Tick(time.Second*5, func(t time.Time) tea.Msg {
+		return refreshPeersMsg{}
+	})()
 }
 
 // Update handles Bubble Tea update messages
@@ -191,6 +199,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case refreshPeersMsg:
 		m.refreshPeersContent()
+		// Also refresh UI state (room, username) in case they changed
+		m.currentRoom = m.chatService.GetCurrentRoom()
+		m.username = m.chatService.GetUsername()
+		// Schedule next refresh
+		cmds = append(cmds, m.tickPeersRefresh)
 
 	case roomChangedMsg:
 		// Update current room and refresh UI
@@ -506,38 +519,63 @@ func (m *Model) renderInput() string {
 	return input
 }
 
-// renderPeers renders the peers list
+// renderPeers renders the peers list with vibrant colors
 func (m *Model) renderPeers() string {
 	if !m.ready {
 		return "Loading peers..."
 	}
 
+	// Get fresh peer data from chat service
+	peers := m.chatService.GetPeers()
+	
 	var content strings.Builder
-	content.WriteString("Online Users\n")
-	content.WriteString(strings.Repeat("─", 20) + "\n")
+	
+	// Title with vibrant styling
+	titleStyle := lipgloss.NewStyle().
+		Foreground(m.styles.PeerColor).
+		Bold(true).
+		Underline(true)
+	content.WriteString(titleStyle.Render("🌐 Online Users") + "\n\n")
 
-	for _, peer := range m.peers {
-		status := "●"
-		if peer.IsConnected {
-			status = "●"
-		} else {
-			status = "○"
+	if len(peers) == 0 {
+		noUsersStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#FF9800")).
+			Italic(true)
+		content.WriteString(noUsersStyle.Render("No users online"))
+	} else {
+		for _, peer := range peers {
+			// Only show peers in the same room or if we're not in a room yet
+			if m.currentRoom == "" || peer.Room == m.currentRoom {
+				status := "🟢" // Online
+				if !peer.IsConnected {
+					status = "🔴" // Offline
+				}
+				
+				peerStyle := lipgloss.NewStyle().
+					Foreground(m.styles.PeerColor).
+					Bold(true)
+				roomStyle := lipgloss.NewStyle().
+					Foreground(m.styles.RoomColor).
+					Italic(true)
+					
+				content.WriteString(fmt.Sprintf("%s %s %s\n",
+					status,
+					peerStyle.Render(peer.Username),
+					roomStyle.Render("("+peer.Room+")")))
+			}
 		}
-
-		content.WriteString(fmt.Sprintf("%s %s (%s)\n",
-			status,
-			peer.Username,
-			peer.Room))
 	}
 
-	if len(m.peers) == 0 {
-		content.WriteString("No users online")
-	}
-
-	return m.styles.BorderStyle.
+	// Vibrant border for peers panel
+	peersStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(m.styles.PeerColor).
 		Width(m.windowWidth / 4).
 		Height(m.windowHeight - 3).
-		Render(content.String())
+		Padding(1).
+		Bold(true)
+
+	return peersStyle.Render(content.String())
 }
 
 // renderStatusBar renders the status bar
